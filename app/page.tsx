@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 
 import { motion } from "framer-motion";
 
@@ -9,6 +10,8 @@ export default function Home() {
 
   useEffect(() => {
     setMounted(true);
+    // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+
   }, []);
 
   if (!mounted) return null;
@@ -51,22 +54,26 @@ export default function Home() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3, duration: 0.8 }}
               >
-                <motion.a
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  href="/login"
-                  className="bg-white text-brand-blue px-8 py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
-                >
-                  Login
-                </motion.a>
-                <motion.a
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  href="/register"
-                  className="bg-white text-brand-blue px-8 py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
-                >
-                  Register
-                </motion.a>
+                {mounted && (
+                  <>
+                    <motion.a
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      href={session ? "/dashboard" : "/login"}
+                      className="bg-white text-brand-blue px-8 py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+                    >
+                      {session ? "Go to Dashboard" : "Login"}
+                    </motion.a>
+                    <motion.a
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      href={session ? "/dashboard" : "/register"}
+                      className="bg-white text-brand-blue px-8 py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+                    >
+                      {session ? "Go to Dashboard" : "Register"}
+                    </motion.a>
+                  </>
+                )}
               </motion.div>
             </motion.div>
           </div>
@@ -140,37 +147,41 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Current Tournaments Section */}
-        <section className="py-12 px-4 bg-gray-50">
-          <div className="max-w-6xl mx-auto">
-            <h2 className="text-3xl font-bold text-gray-800 text-center mb-8">
-              Current Tournaments
-            </h2>
-            <motion.div
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              transition={{ duration: 0.8 }}
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-            >
-              {[
-                { id: 1, name: "Summer Showdown" },
-                { id: 2, name: "Fall Face-Off" }
-              ].map((tournament) => (
-                <motion.a
-                  key={tournament.id}
-                  href={`/tournament/${tournament.id}`}
-                  whileHover={{ scale: 1.02, boxShadow: "0px 5px 15px rgba(0,0,0,0.1)" }}
-                  className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow duration-300"
-                >
-                  <h3 className="text-xl font-semibold text-gray-700">
-                    {tournament.name}
-                  </h3>
-                  <p className="text-gray-500 mt-2">View Tournament</p>
-                </motion.a>
-              ))}
-            </motion.div>
-          </div>
-        </section>
+        {session && (
+          <section className="py-12 px-4 bg-gray-50">
+            <div className="max-w-6xl mx-auto">
+              <h2 className="text-3xl font-bold text-gray-800 text-center mb-8">
+                Current Tournaments
+              </h2>
+              <motion.div
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                transition={{ duration: 0.8 }}
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+              >
+                {[
+                  { id: 1, name: "Summer Showdown" },
+                  { id: 2, name: "Fall Face-Off" }
+                ].map((tournament) => (
+                  <motion.a
+                    key={tournament.id}
+                    href={`/tournament/${tournament.id}`}
+                    whileHover={{
+                      scale: 1.02,
+                      boxShadow: "0px 5px 15px rgba(0,0,0,0.1)"
+                    }}
+                    className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow duration-300"
+                  >
+                    <h3 className="text-xl font-semibold text-gray-700">
+                      {tournament.name}
+                    </h3>
+                    <p className="text-gray-500 mt-2">View Tournament</p>
+                  </motion.a>
+                ))}
+              </motion.div>
+            </div>
+          </section>
+        )}
       </div>
-    );
+  );
 }
