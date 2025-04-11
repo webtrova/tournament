@@ -2,7 +2,7 @@
 
 import { Match } from "@/types/tournament/matches";
 import { motion } from "framer-motion";
-import { TeamScore } from "./TeamScore";
+import { TeamScore } from "@/components/tournament/TeamScore";
 import { useState, useEffect } from "react";
 import { Tournament } from "@/types/tournament/tournament"; // Import Tournament type
 
@@ -23,6 +23,14 @@ export const MatchCard = ({
   onScoreUpdate,
   isEditable = true
 }: MatchCardProps) => {
+  const getTeamLogoPath = (teamName: string) => {
+    const fileName = teamName.replace(/ /g, "-") + ".svg";
+    return `/teams/${fileName}`;
+  };
+
+  const team1Logo = getTeamLogoPath(match.team1.name);
+  const team2Logo = getTeamLogoPath(match.team2.name);
+
   const [localScore, setLocalScore] = useState({
     team1Score: match.score.team1Score,
     team2Score: match.score.team2Score
@@ -42,7 +50,13 @@ export const MatchCard = ({
         : { team1Score: localScore.team1Score, team2Score: score };
 
     setLocalScore(newScore);
-    onScoreUpdate?.(match.id, newScore.team1Score, newScore.team2Score);
+  };
+
+  const handleSubmit = () => {
+    onScoreUpdate?.(match.id, localScore.team1Score, localScore.team2Score);
+  };
+  const handleReset = () => {
+    onScoreUpdate?.(match.id, 0, 0);
   };
 
   const isMatchActive = !match.isCompleted && isEditable;
@@ -81,6 +95,7 @@ export const MatchCard = ({
             isWinner={match.winner === match.team1}
             isEliminated={tournament.eliminatedTeams.includes(match.team1)}
             bracket={match.bracket}
+            logo={team1Logo}
           />
           {isMatchActive && (
             <input
@@ -102,6 +117,7 @@ export const MatchCard = ({
             isWinner={match.winner === match.team2}
             isEliminated={tournament.eliminatedTeams.includes(match.team2)}
             bracket={match.bracket}
+            logo={team2Logo}
           />
           {isMatchActive && (
             <input
@@ -115,27 +131,71 @@ export const MatchCard = ({
             />
           )}
         </div>
+        {isMatchActive && (
+          <div className="flex space-x-2 mt-2">
+            <button
+              onClick={handleSubmit}
+              className="w-1/2 bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600"
+            >
+              Submit
+            </button>
+            <button
+              onClick={handleReset}
+              className="w-1/2 bg-gray-300 text-gray-700 py-2 rounded-md hover:bg-gray-400"
+            >
+              Reset
+            </button>
+          </div>
+        )}
 
         {match.isCompleted && match.winner && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className={`mt-3 text-center py-2 rounded-lg text-sm font-medium ${
-              match.bracket === "winners"
-                ? "bg-blue-50 text-blue-700"
-                : match.bracket === "losers"
-                ? "bg-red-50 text-red-700"
-                : "bg-purple-50 text-purple-700"
-            }`}
-          >
-            {match.winner.name} Wins!
-            {match.loser &&
-              tournament.eliminatedTeams.includes(match.loser) && (
-                <div className="text-xs text-red-600 mt-1 font-semibold">
-                  {match.loser.name} Eliminated
+          <>
+            {match.bracket === "championship" ? (
+              match.requiresRematch ? (
+                <div className="mt-3 text-center py-2 rounded-lg bg-yellow-100 text-yellow-800 font-semibold text-sm">
+                  Championship rematch required!
                 </div>
-              )}
-          </motion.div>
+              ) : (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.5 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.5 }}
+                  className="mt-3 text-center py-3 rounded-lg bg-purple-100 text-purple-800 font-semibold text-lg"
+                >
+                  <div className="flex items-center justify-center space-x-2">
+                    <span>🏆</span>
+                    <span>{match.winner.name} Wins the Championship!</span>
+                  </div>
+                  {match.loser &&
+                    tournament.eliminatedTeams.includes(match.loser) && (
+                      <div className="text-xs text-red-600 mt-1 font-semibold">
+                        {match.loser.name} Eliminated
+                      </div>
+                    )}
+                </motion.div>
+              )
+            ) : (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className={`mt-3 text-center py-2 rounded-lg text-sm font-medium ${
+                  match.bracket === "winners"
+                    ? "bg-blue-50 text-blue-700"
+                    : match.bracket === "losers"
+                    ? "bg-red-50 text-red-700"
+                    : "bg-purple-50 text-purple-700"
+                }`}
+              >
+                {match.winner.name} Wins!
+                {match.loser &&
+                  tournament.eliminatedTeams.includes(match.loser) && (
+                    <div className="text-xs text-red-600 mt-1 font-semibold">
+                      {match.loser.name} Eliminated
+                    </div>
+                  )}
+              </motion.div>
+            )}
+          </>
         )}
       </div>
     </motion.div>

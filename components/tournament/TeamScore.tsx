@@ -10,6 +10,7 @@ interface TeamScoreProps {
   isWinner?: boolean;
   isEliminated?: boolean;
   bracket?: "winners" | "losers" | "championship";
+  logo?: string;
 }
 
 export const TeamScore = ({
@@ -17,7 +18,8 @@ export const TeamScore = ({
   score,
   isWinner,
   isEliminated,
-  bracket = "winners"
+  bracket = "winners",
+  logo
 }: TeamScoreProps) => {
   const getBracketColors = () => {
     switch (bracket) {
@@ -60,9 +62,9 @@ export const TeamScore = ({
       {/* Team Logo */}
       <div className="relative w-10 h-10 flex-shrink-0">
         <Image
-          src={`/team-logos/${team.name
+          src={`/teams/${team.name
             .toLowerCase()
-            .replace(/\s+/g, "-")}.svg`}
+            .replace(/\s+/g, "-")}.png`}
           alt={`${team.name} logo`}
           fill
           className="object-contain"
