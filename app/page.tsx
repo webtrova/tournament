@@ -7,12 +7,13 @@ import { motion } from "framer-motion";
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
+  const { data: session } = useSession();
 
   useEffect(() => {
     setMounted(true);
     // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
-
   }, []);
+
 
   if (!mounted) return null;
 
@@ -59,7 +60,7 @@ export default function Home() {
                     <motion.a
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      href={session ? "/dashboard" : "/login"}
+                      href={session ? "/dashboard" : "/(auth)/login"}
                       className="bg-white text-brand-blue px-8 py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
                     >
                       {session ? "Go to Dashboard" : "Login"}
@@ -67,7 +68,7 @@ export default function Home() {
                     <motion.a
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      href={session ? "/dashboard" : "/register"}
+                      href={session ? "/dashboard" : "/(auth)/register"}
                       className="bg-white text-brand-blue px-8 py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
                     >
                       {session ? "Go to Dashboard" : "Register"}
