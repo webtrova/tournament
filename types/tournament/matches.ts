@@ -64,7 +64,7 @@ export const createMatch = (
   requiresRematch: false
 });
 
-export const updateMatchScore = (match: Match, newScore: Score): Match => {
+export const updateMatchScore = (match: Match, newScore: Score): Match => {  
   const updatedMatch = { ...match, score: newScore };
 
   if (
@@ -90,13 +90,36 @@ export const updateMatchScore = (match: Match, newScore: Score): Match => {
           updatedMatch.requiresRematch = true;
         }
       }
-    } else {
-      // Regular match - update losses
-      loser.losses++;
     }
   }
-
   return updatedMatch;
+};
+
+export const updateTeamLosses = (tournament: Tournament): Tournament => {
+  const teamLosses: { [teamId: string]: number } = {};
+  tournament.rounds.forEach((round) => {
+    round.matches.filter(match => match.isCompleted).forEach(match => {
+      if (match.loser) {
+        const loserId = match.loser.id;
+        teamLosses[loserId] = (teamLosses[loserId] || 0) + 1;
+      }
+    });
+  });
+
+  // Update team losses in the tournament object
+  const updatedTournament = {
+    ...tournament,
+    rounds: tournament.rounds.map(round => ({
+      ...round,
+      matches: round.matches.map(match => ({
+        ...match,
+        team1: { ...match.team1, losses: teamLosses[match.team1.id] || 0 },
+        team2: { ...match.team2, losses: teamLosses[match.team2.id] || 0 },
+      })),
+    })),
+    eliminatedTeams: tournament.eliminatedTeams.map(team => ({ ...team, losses: teamLosses[team.id] || 0 })),
+  });
+  return updatedTournament;
 };
 
 export const createInitialRounds = (teams: Team[]): Tournament => {
@@ -139,6 +162,8 @@ export const createInitialRounds = (teams: Team[]): Tournament => {
 };
 
 export const advanceToNextRound = (tournament: Tournament): Tournament => {
+  tournament = updateTeamLosses(tournament);
+
   const currentRound = tournament.rounds[tournament.currentRound - 1];
   const winnersBracketMatches: Match[] = [];
   const losersBracketMatches: Match[] = [];
@@ -250,10 +275,13 @@ export const advanceToNextRound = (tournament: Tournament): Tournament => {
     .filter((m) => m.bracket === "losers" && m.loser)
     .map((m) => m.loser!);
 
-  // If we're in double elimination, teams aren't eliminated until they lose twice
-  const actuallyEliminated = newlyEliminatedTeams.filter(
-    (team) => team.losses >= 2
-  );
+  const actuallyEliminated = currentRound.matches
+    .filter(
+      (m) =>
+        (m.bracket === "losers" || m.isChampionshipMatch) && m.loser
+    )
+    .map((m) => m.loser!)
+    .filter((team) => team.losses >= 2);
 
   // Determine tournament winner
   let winner = undefined;
