@@ -22,7 +22,15 @@ export default function RootLayout({
         className={`${inter.className} min-h-screen bg-background antialiased`}
       >
         <Navbar />
-        <SessionProvider>{children}</SessionProvider>
+        <div
+          style={{
+            position: "relative",
+            minHeight: "100vh",
+            marginTop: "-74px"
+          }}
+        >
+          <SessionProvider>{children}</SessionProvider>
+        </div>
       </body>
     </html>
   );
