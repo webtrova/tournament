@@ -1,13 +1,14 @@
 "use client";
 
 import { TournamentBracket } from "@/components/tournament/TournamentBracket";
+import { teams, Match } from "@/types/tournament";
 import {
-  teams,
   createInitialRounds,
-  Match,
   updateMatchScore,
-  advanceToNextRound
-} from "@/types/tournament";
+  advanceToNextRound,
+} from "@/types/tournament/matches";
+
+
 import { useState, useCallback, useEffect } from "react";
 
 export default function TournamentPage() {
@@ -16,7 +17,7 @@ export default function TournamentPage() {
     if (typeof window !== "undefined") {
       localStorage.removeItem("tournamentState");
     }
-    return createInitialRounds(teams);
+    return createInitialRounds(teams) as any;
   });
 
   const handleMatchUpdate = useCallback((updatedMatch: Match) => {
@@ -55,7 +56,7 @@ export default function TournamentPage() {
   const handleReset = useCallback(() => {
     // Reset all team losses
     teams.forEach((team) => (team.losses = 0));
-    setTournament(createInitialRounds(teams));
+    setTournament(createInitialRounds(teams) as any);
   }, []);
 
   return (
@@ -85,11 +86,17 @@ export default function TournamentPage() {
               {teams.length - tournament.eliminatedTeams.length}
             </p>
           </div>
-          <div className="bg-red-50 p-4 rounded-lg">
-            <h3 className="font-semibold text-red-900">Eliminated Teams</h3>
-            <p className="text-2xl text-red-600">
-              {tournament.eliminatedTeams.length}
-            </p>
+          <div className="bg-red-50 p-4 rounded-lg overflow-auto max-h-40">
+            <h3 className="font-semibold text-red-900 mb-2">Eliminated Teams</h3>
+            {tournament.eliminatedTeams.length === 0 ? (
+              <p className="text-red-600">No teams eliminated yet.</p>
+            ) : (
+              <ul className="list-disc list-inside text-red-600">
+                {tournament.eliminatedTeams.map((team) => (
+                  <li key={team.id}>{team.name}</li>
+                ))}
+              </ul>
+            )}
           </div>
           <div className="bg-green-50 p-4 rounded-lg">
             <h3 className="font-semibold text-green-900">Current Round</h3>

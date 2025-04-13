@@ -26,7 +26,7 @@ export default function RootLayout({
           style={{
             position: "relative",
             minHeight: "100vh",
-            marginTop: "-74px"
+          
           }}
         >
           <SessionProvider>{children}</SessionProvider>

@@ -1,169 +1,4 @@
-import { Team } from "./teams";
-
-export interface Score {
-  team1Score: number;
-  team2Score: number;
-}
-
-export interface Match {
-  id: string;
-  round: number;
-  team1: Team;
-  team2: Team;
-  score: Score;
-  isCompleted: boolean;
-  winner?: Team;
-  loser?: Team;
-  isDoubleElimination: boolean;
-  bracket: "winners" | "losers" | "championship";
-  nextMatchId?: string;
-  nextLoserMatchId?: string;
-  isChampionshipMatch?: boolean;
-  requiresRematch?: boolean;
-}
-
-export interface Round {
-  roundNumber: number;
-  matches: Match[];
-  isDoubleElimination: boolean;
-  isChampionshipRound?: boolean;
-}
-
-export interface Tournament {
-  rounds: Round[];
-  currentRound: number;
-  eliminatedTeams: Team[];
-  winner?: Team;
-  championshipMatchesPlayed?: number;
-}
-
-const POINTS_TO_WIN = 200;
-
-export const createMatch = (
-  id: string,
-  round: number,
-  team1: Team,
-  team2: Team,
-  isDoubleElimination: boolean,
-  bracket: "winners" | "losers" | "championship" = "winners",
-  nextMatchId?: string,
-  nextLoserMatchId?: string,
-  isChampionshipMatch?: boolean
-): Match => ({
-  id,
-  round,
-  team1,
-  team2,
-  score: { team1Score: 0, team2Score: 0 },
-  isCompleted: false,
-  isDoubleElimination,
-  bracket,
-  nextMatchId,
-  nextLoserMatchId,
-  isChampionshipMatch,
-  requiresRematch: false
-});
-
-export const updateMatchScore = (match: Match, newScore: Score): Match => {  
-  const updatedMatch = { ...match, score: newScore };
-
-  if (
-    newScore.team1Score >= POINTS_TO_WIN ||
-    newScore.team2Score >= POINTS_TO_WIN
-  ) {
-    const winner =
-      newScore.team1Score >= POINTS_TO_WIN ? match.team1 : match.team2;
-    const loser = winner === match.team1 ? match.team2 : match.team1;
-
-    updatedMatch.winner = winner;
-    updatedMatch.loser = loser;
-    updatedMatch.isCompleted = true;
-
-    // Handle championship match logic
-    if (match.isChampionshipMatch) {
-      if (match.bracket === "championship") {
-        // If winners bracket champion wins, they win the tournament
-        if (match.team1 === winner) {
-          updatedMatch.requiresRematch = false;
-        } else {
-          // If losers bracket winner wins, they need to win again
-          updatedMatch.requiresRematch = true;
-        }
-      }
-    }
-  }
-  return updatedMatch;
-};
-
-export const updateTeamLosses = (tournament: Tournament): Tournament => {
-  const teamLosses: { [teamId: string]: number } = {};
-  tournament.rounds.forEach((round) => {
-    round.matches.filter(match => match.isCompleted).forEach(match => {
-      if (match.loser) {
-        const loserId = match.loser.id;
-        teamLosses[loserId] = (teamLosses[loserId] || 0) + 1;
-      }
-    });
-  });
-
-  // Update team losses in the tournament object
-  const updatedTournament = {
-    ...tournament,
-    rounds: tournament.rounds.map(round => ({
-      ...round,
-      matches: round.matches.map(match => ({
-        ...match,
-        team1: { ...match.team1, losses: teamLosses[match.team1.id] || 0 },
-        team2: { ...match.team2, losses: teamLosses[match.team2.id] || 0 },
-      })),
-    })),
-    eliminatedTeams: tournament.eliminatedTeams.map(team => ({ ...team, losses: teamLosses[team.id] || 0 })),
-  });
-  return updatedTournament;
-};
-
-export const createInitialRounds = (teams: Team[]): Tournament => {
-  // Reset all team losses
-  teams.forEach((team) => (team.losses = 0));
-
-  // Create first round matches for winners bracket
-  const firstRoundMatches: Match[] = [];
-
-  for (let i = 0; i < teams.length; i += 2) {
-    const matchId = `W1-${i / 2 + 1}`;
-    const nextMatchId = `W2-${Math.floor(i / 4) + 1}`;
-    const nextLoserMatchId = `L1-${i / 2 + 1}`;
-
-    firstRoundMatches.push(
-      createMatch(
-        matchId,
-        1,
-        teams[i],
-        teams[i + 1],
-        true,
-        "winners",
-        nextMatchId,
-        nextLoserMatchId
-      )
-    );
-  }
-
-  return {
-    rounds: [
-      {
-        roundNumber: 1,
-        matches: firstRoundMatches,
-        isDoubleElimination: true
-      }
-    ],
-    currentRound: 1,
-    eliminatedTeams: []
-  };
-};
-
 export const advanceToNextRound = (tournament: Tournament): Tournament => {
-  tournament = updateTeamLosses(tournament);
-
   const currentRound = tournament.rounds[tournament.currentRound - 1];
   const winnersBracketMatches: Match[] = [];
   const losersBracketMatches: Match[] = [];
@@ -174,56 +9,51 @@ export const advanceToNextRound = (tournament: Tournament): Tournament => {
     .filter((m) => m.bracket === "winners" && m.winner)
     .map((m) => m.winner!);
 
-  // Process losers bracket
-  const losersAdvancing = currentRound.matches
+  // Get losers from winners bracket
+  const losersFromWinners = currentRound.matches
     .filter((m) => m.bracket === "winners" && m.loser)
     .map((m) => m.loser!);
 
-  // Handle championship matches
-  if (
-    winnersAdvancing.length === 1 &&
-    currentRound.matches.some((m) => m.bracket === "losers")
-  ) {
-    const winnersBracketChampion = winnersAdvancing[0];
-    const losersBracketWinner = currentRound.matches.find(
-      (m) => m.bracket === "losers" && m.winner
-    )?.winner;
-
-    if (losersBracketWinner) {
-      championshipMatches.push(
-        createMatch(
-          `C${tournament.currentRound + 1}-1`,
-          tournament.currentRound + 1,
-          winnersBracketChampion,
-          losersBracketWinner,
-          false,
-          "championship",
-          undefined,
-          undefined,
-          true
-        )
-      );
-    }
-  } else if (
-    currentRound.isChampionshipRound &&
-    currentRound.matches[0]?.requiresRematch
-  ) {
-    // Create rematch if needed (losers bracket winner won first championship match)
-    championshipMatches.push(
-      createMatch(
-        `C${tournament.currentRound + 1}-2`,
-        tournament.currentRound + 1,
-        currentRound.matches[0].team1,
-        currentRound.matches[0].winner!,
-        false,
-        "championship",
-        undefined,
-        undefined,
-        true
-      )
-    );
-  } else {
-    // Create next round matches as before
+   // Check if this is the final round of both brackets (assuming last match is the final)
+   const isWinnersBracketFinalRound =
+     winnersAdvancing.length === 1 &&
+     currentRound.matches.some((m) => m.bracket === "winners");
+ 
+   const isLosersBracketFinalRound = currentRound.matches.every(
+     (m) => m.bracket !== "winners" && m.winner
+   );
+ 
+   // Handle championship match creation
+   if (isWinnersBracketFinalRound && isLosersBracketFinalRound) {
+     const winnersBracketFinal = currentRound.matches.find(
+       (m) => m.bracket === "winners"
+     );
+     const losersBracketFinal = currentRound.matches.find(
+       (m) => m.bracket === "losers"
+     );
+ 
+     if (winnersBracketFinal && losersBracketFinal) {
+       const winnersBracketFinalLoser =
+         winnersBracketFinal.team1.id === winnersBracketFinal.winner?.id
+           ? winnersBracketFinal.team2
+           : winnersBracketFinal.team1;
+       const losersBracketFinalWinner = losersBracketFinal.winner;
+ 
+       if (losersBracketFinalWinner) {
+         championshipMatches.push(
+           createMatch(
+             `C${tournament.currentRound + 1}-1`,
+             tournament.currentRound + 1,
+             winnersBracketFinalLoser,
+             losersBracketFinalWinner,
+             false,
+             "championship"
+           )
+         );
+       }
+     }
+   } else {
+    // Create next round matches
     for (let i = 0; i < winnersAdvancing.length; i += 2) {
       if (i + 1 < winnersAdvancing.length) {
         const matchId = `W${tournament.currentRound + 1}-${i / 2 + 1}`;
@@ -247,25 +77,38 @@ export const advanceToNextRound = (tournament: Tournament): Tournament => {
       }
     }
 
-    // Create losers bracket matches
-    for (let i = 0; i < losersAdvancing.length; i += 2) {
-      if (i + 1 < losersAdvancing.length) {
-        const matchId = `L${tournament.currentRound}-${i / 2 + 1}`;
-        const nextMatchId = `L${tournament.currentRound + 1}-${
-          Math.floor(i / 4) + 1
-        }`;
-
-        losersBracketMatches.push(
-          createMatch(
-            matchId,
-            tournament.currentRound,
-            losersAdvancing[i],
-            losersAdvancing[i + 1],
-            true,
-            "losers",
-            nextMatchId
-          )
-        );
+     // Get winners from the losers bracket of the previous round
+     const previousRoundNumber = tournament.currentRound - 1;
+     const previousRound = tournament.rounds[previousRoundNumber - 1];
+     const previousLosersBracketWinners = previousRound
+       ? previousRound.matches
+           .filter((m) => m.bracket === "losers" && m.winner)
+           .map((m) => m.winner!)
+       : [];
+ 
+     const usedLosersBracketWinners = new Set<string>();
+ 
+     // Create losers bracket matches, pairing losers from winners bracket with winners from losers bracket
+     for (const loser of losersFromWinners) {
+       const availableWinner = previousLosersBracketWinners.find(
+         (winner) => !usedLosersBracketWinners.has(winner.id)
+       );
+ 
+       if (availableWinner) {
+         const matchId = `L${tournament.currentRound + 1}-${
+           losersBracketMatches.length + 1
+         }`;
+         losersBracketMatches.push(
+           createMatch(
+             matchId,
+             tournament.currentRound + 1,
+             loser,
+             availableWinner,
+             true,
+             "losers"
+           )
+         );
+         usedLosersBracketWinners.add(availableWinner.id);
       }
     }
   }
@@ -275,13 +118,7 @@ export const advanceToNextRound = (tournament: Tournament): Tournament => {
     .filter((m) => m.bracket === "losers" && m.loser)
     .map((m) => m.loser!);
 
-  const actuallyEliminated = currentRound.matches
-    .filter(
-      (m) =>
-        (m.bracket === "losers" || m.isChampionshipMatch) && m.loser
-    )
-    .map((m) => m.loser!)
-    .filter((team) => team.losses >= 2);
+  const actuallyEliminated = newlyEliminatedTeams;
 
   // Determine tournament winner
   let winner = undefined;
@@ -314,5 +151,46 @@ export const advanceToNextRound = (tournament: Tournament): Tournament => {
       championshipMatches.length > 0
         ? (tournament.championshipMatchesPlayed || 0) + 1
         : tournament.championshipMatchesPlayed
+  };
+};
+
+import { Team } from "./teams";
+import { Match, Round, Tournament } from ".";
+
+export const createInitialRounds = (teams: Team[]): Tournament => {
+  const matches: Match[] = [];
+  const numTeams = teams.length;
+  let matchIdCounter = 1;
+
+  // Create initial matches (assuming a single-elimination style bracket for now)
+  for (let i = 0; i < numTeams; i += 2) {
+    if (i + 1 < numTeams) {
+      matches.push({
+        id: `W1-${matchIdCounter++}`,
+        roundNumber: 1,
+        team1: teams[i],
+        team2: teams[i + 1],
+        isCompleted: false,
+        bracket: "winners",
+        score: {
+          team1Score: 0,
+          team2Score: 0,
+        },
+      });
+    }
+  }
+
+  const initialRound: Round = {
+    roundNumber: 1,
+    matches,
+    isDoubleElimination: false,
+    isChampionshipRound: false,
+  };
+
+  return {
+    rounds: [initialRound],
+    currentRound: 1,
+    eliminatedTeams: [],
+    championshipMatchesPlayed: 0,
   };
 };

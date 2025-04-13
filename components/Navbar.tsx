@@ -27,7 +27,7 @@ const Navbar = () => {
   };
 
   return (
-      <nav className="bg-white py-4 px-6" style={{ zIndex: 50 }}>
+      <nav className="bg-white py-4 px-6 mt-8" style={{ zIndex: 1 }}>
         <div className="container mx-auto flex items-center justify-between">
           {/* Logo Placeholder */}
           <div className="text-xl font-bold">

@@ -74,11 +74,6 @@ export const TournamentBracket = ({
               {round.isChampionshipRound
                 ? "Championship"
                 : `Round ${round.roundNumber}`}
-              {round.isDoubleElimination && (
-                <span className="ml-2 text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">
-                  Double
-                </span>
-              )}
             </button>
           ))}
         </div>
