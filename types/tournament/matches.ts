@@ -181,46 +181,76 @@ const createMatch = (
 
 export const createInitialRounds = (teams: Team[]): Tournament => {
   const numTeams = teams.length;
-  const initialMatches: Match[] = [];
-  const initialLoserMatches: Match[] = [];
+  const matches: Match[] = [];
 
-  // Create initial matches in the winner's bracket
-  let winnersMatchIdCounter = 1;
-  for (let i = 0; i < numTeams; i += 2) {
-    const matchId = `W1-${winnersMatchIdCounter++}`;
-    const team1 = teams[i];
-    const team2 = i + 1 < numTeams ? teams[i + 1] : null;
-    const isBye = team2 === null;
+  // Calculate the number of rounds in the winner's bracket
+  const numWinnerRounds = Math.ceil(Math.log2(numTeams));
+  const numInitialWinnerMatches = Math.pow(2, numWinnerRounds - 1);
 
-    initialMatches.push(
-      createMatch(matchId, 1, team1, team2, isBye, "winners")
+  // Create the winner's bracket matches
+  let winnerMatchIdCounter = 1;
+  let loserMatchIdCounter = 1; // Initialize loser's bracket counter
+  const winnerMatches: Match[] = [];
+
+  // Create initial matches with byes if necessary
+  let teamIndex = 0;
+  for (let i = 0; i < numInitialWinnerMatches; i++) {
+    const team1 = teams[teamIndex++] || null;
+    const team2 = teams[teamIndex++] || null;
+    const isBye = team1 === null || team2 === null;
+    const matchId = `W1-${winnerMatchIdCounter++}`;
+    // Calculate the corresponding loser's bracket match in round 2
+    const nextLoserMatchId = `L2-${loserMatchIdCounter++}`;
+
+    winnerMatches.push(
+      createMatch(
+        matchId,
+        1,
+        team1,
+        team2,
+        isBye,
+        "winners",
+        undefined, // No next winner match in the initial round
+        nextLoserMatchId
+      )
     );
   }
+  matches.push(...winnerMatches);
+  
+  // Create initial matches in the loser's bracket (round 1)
+  const initialLoserMatches: Match[] = [];
+  let initialLoserMatchIdCounter = 1;
+  const numInitialLoserMatches = Math.floor(numInitialWinnerMatches / 2); // Half the number of initial winner's bracket matches
 
-  // Create initial (empty) matches in the loser's bracket
-  // For simplicity, we'll create placeholders for the first round of losers
-  let losersMatchIdCounter = 1;
-  const numLosersMatches = Math.floor(numTeams / 2); // Roughly half the number of initial matches
-  for (let i = 0; i < numLosersMatches; i++) {
-    const matchId = `L1-${losersMatchIdCounter++}`;
+  for (let i = 0; i < numInitialLoserMatches; i++) {
+    const matchId = `L1-${initialLoserMatchIdCounter++}`;
     initialLoserMatches.push(
       createMatch(matchId, 1, null, null, true, "losers")
-    );
+    ); // Initially empty matches
   }
+  matches.push(...initialLoserMatches);
 
-  const combinedMatches = [...initialMatches, ...initialLoserMatches];
+  // Create loser's bracket round 2 matches (where losers from winner's bracket enter)
+  const loserRound2Matches: Match[] = [];
+  let loserRound2MatchIdCounter = 1;
+  for (let i = 0; i < numInitialWinnerMatches; i++) {
+    const matchId = `L2-${loserRound2MatchIdCounter++}`;
+    loserRound2Matches.push(
+      createMatch(matchId, 2, null, null, true, "losers")
+    ); // Initially empty matches, will be populated in advanceToNextRound
+  }
+  matches.push(...loserRound2Matches);
 
   const initialRound: Round = {
     roundNumber: 1,
-    matches: combinedMatches,
+    matches,
     isDoubleElimination: true,
     isChampionshipRound: false,
   };
 
   return {
     rounds: [initialRound],
-    currentRound: 1,
-    totalRounds: calculateTotalRounds(numTeams),
+    currentRound: 1,   
     eliminatedTeams: [],
     championshipMatchesPlayed: 0,
   };
@@ -235,7 +265,7 @@ function calculateTotalRounds(numTeams: number): number {
   return baseRounds + loserRounds + championshipRounds;
 }
 
-import { Match } from ".";
+import { Match, Tournament } from ".";
 
 export const updateMatchScore = (
   match: Match,
@@ -261,3 +291,18 @@ export const updateMatchScore = (
 
   return updatedMatch;
 };
+
+export interface Match {
+  id: string;
+  roundNumber: number;
+  team1: Team;
+  team2: Team;
+  isCompleted: boolean;
+  isBye?: boolean;
+  winner?: Team;
+  loser?: Team;
+  bracket: "winners" | "losers" | "championship";
+  score: { team1Score: number; team2Score: number };
+  nextMatchId?: string;
+  nextLoserMatchId?: string;
+}
