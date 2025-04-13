@@ -157,43 +157,83 @@ export const advanceToNextRound = (tournament: Tournament): Tournament => {
 import { Team } from "./teams";
 import { Match, Round, Tournament } from ".";
 
-export const createInitialRounds = (teams: Team[]): Tournament => {
-  const matches: Match[] = [];
-  const numTeams = teams.length;
-  let matchIdCounter = 1;
+const createMatch = (
+  id: string,
+  roundNumber: number,
+  team1: Team | null,
+  team2: Team | null,
+  isBye: boolean = false,
+  bracket: "winners" | "losers" | "championship" = "winners",
+  nextMatchId?: string,
+  nextLoserMatchId?: string
+): Match => ({
+  id,
+  roundNumber,
+  team1: team1 || { id: "bye", name: "BYE", city: "", losses: 0 },
+  team2: team2 || { id: "bye", name: "BYE", city: "", losses: 0 },
+  isCompleted: false,
+  isBye,
+  bracket,
+  score: { team1Score: 0, team2Score: 0 },
+  nextMatchId,
+  nextLoserMatchId,
+});
 
-  // Create initial matches (assuming a single-elimination style bracket for now)
+export const createInitialRounds = (teams: Team[]): Tournament => {
+  const numTeams = teams.length;
+  const initialMatches: Match[] = [];
+  const initialLoserMatches: Match[] = [];
+
+  // Create initial matches in the winner's bracket
+  let winnersMatchIdCounter = 1;
   for (let i = 0; i < numTeams; i += 2) {
-    if (i + 1 < numTeams) {
-      matches.push({
-        id: `W1-${matchIdCounter++}`,
-        roundNumber: 1,
-        team1: teams[i],
-        team2: teams[i + 1],
-        isCompleted: false,
-        bracket: "winners",
-        score: {
-          team1Score: 0,
-          team2Score: 0,
-        },
-      });
-    }
+    const matchId = `W1-${winnersMatchIdCounter++}`;
+    const team1 = teams[i];
+    const team2 = i + 1 < numTeams ? teams[i + 1] : null;
+    const isBye = team2 === null;
+
+    initialMatches.push(
+      createMatch(matchId, 1, team1, team2, isBye, "winners")
+    );
   }
+
+  // Create initial (empty) matches in the loser's bracket
+  // For simplicity, we'll create placeholders for the first round of losers
+  let losersMatchIdCounter = 1;
+  const numLosersMatches = Math.floor(numTeams / 2); // Roughly half the number of initial matches
+  for (let i = 0; i < numLosersMatches; i++) {
+    const matchId = `L1-${losersMatchIdCounter++}`;
+    initialLoserMatches.push(
+      createMatch(matchId, 1, null, null, true, "losers")
+    );
+  }
+
+  const combinedMatches = [...initialMatches, ...initialLoserMatches];
 
   const initialRound: Round = {
     roundNumber: 1,
-    matches,
-    isDoubleElimination: false,
+    matches: combinedMatches,
+    isDoubleElimination: true,
     isChampionshipRound: false,
   };
 
   return {
     rounds: [initialRound],
     currentRound: 1,
+    totalRounds: calculateTotalRounds(numTeams),
     eliminatedTeams: [],
     championshipMatchesPlayed: 0,
   };
 };
+
+
+function calculateTotalRounds(numTeams: number): number {
+  const baseRounds = Math.ceil(Math.log2(numTeams));
+  const loserRounds = (baseRounds - 1) * 2; 
+  const championshipRounds = 1; 
+  
+  return baseRounds + loserRounds + championshipRounds;
+}
 
 import { Match } from ".";
 
