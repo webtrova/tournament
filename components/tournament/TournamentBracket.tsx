@@ -3,7 +3,7 @@
 import { Tournament, Match } from "@/types/tournament";
 import { motion, AnimatePresence } from "framer-motion";
 import { MatchCard } from "./MatchCard";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 
@@ -17,6 +17,25 @@ export const TournamentBracket = ({
   onMatchUpdate
 }: TournamentBracketProps) => {
   const [selectedRound, setSelectedRound] = useState(tournament.currentRound);
+
+  useEffect(() => {
+    const currentRoundData = tournament.rounds.find(
+      (round) => round.roundNumber === selectedRound
+    );
+
+    if (currentRoundData) {
+      const allMatchesCompleted = currentRoundData.matches.every(
+        (match) => match.isCompleted
+      );
+
+      if (allMatchesCompleted) {
+        const nextRoundNumber = selectedRound + 1;
+        if (tournament.rounds.some((round) => round.roundNumber === nextRoundNumber)) {
+          setSelectedRound(nextRoundNumber);
+        }
+      }
+    }
+  }, [selectedRound, tournament.rounds]);
 
   const handleScoreUpdate = useCallback(
     (matchId: string, team1Score: number, team2Score: number) => {
