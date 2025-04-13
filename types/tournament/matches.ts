@@ -194,3 +194,30 @@ export const createInitialRounds = (teams: Team[]): Tournament => {
     championshipMatchesPlayed: 0,
   };
 };
+
+import { Match } from ".";
+
+export const updateMatchScore = (
+  match: Match,
+  newScore: { team1Score: number; team2Score: number }
+): Match => {
+  const updatedMatch = {
+    ...match,
+    score: newScore,
+    isCompleted: newScore.team1Score !== newScore.team2Score,
+    winner:
+      newScore.team1Score > newScore.team2Score
+        ? match.team1
+        : newScore.team2Score > newScore.team1Score
+        ? match.team2
+        : undefined,
+    loser:
+      newScore.team1Score < newScore.team2Score
+        ? match.team1
+        : newScore.team2Score < newScore.team1Score
+        ? match.team2
+        : undefined,
+  };
+
+  return updatedMatch;
+};
