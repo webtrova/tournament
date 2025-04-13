@@ -179,9 +179,6 @@ const processLosersBracket = (
            createMatch(matchId, nextRoundNumber, losersBracketWinners[i], losersBracketWinners[i + 1], false, "losers")
          );
        }
-     }
-   }
-      );
     }
   }
   return losersBracketMatches;
