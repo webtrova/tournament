@@ -1,157 +1,190 @@
 export const advanceToNextRound = (tournament: Tournament): Tournament => {
   const currentRound = tournament.rounds[tournament.currentRound - 1];
-  const winnersBracketMatches: Match[] = [];
-  const losersBracketMatches: Match[] = [];
   const championshipMatches: Match[] = [];
 
-  // Process winners bracket
-  const winnersAdvancing = currentRound.matches
-    .filter((m) => m.bracket === "winners" && m.winner)
-    .map((m) => m.winner!);
+  const { winnersBracketMatches, losersBracketMatches, losersToSeed } =
+    processWinnersBracket(currentRound, tournament.currentRound);
 
-  // Get losers from winners bracket
-  const losersFromWinners = currentRound.matches
-    .filter((m) => m.bracket === "winners" && m.loser)
-    .map((m) => m.loser!);
+  const nextLosersBracketMatches = processLosersBracket(
+    currentRound,
+    tournament.currentRound,
+    losersToSeed
+  );
 
-   // Check if this is the final round of both brackets (assuming last match is the final)
-   const isWinnersBracketFinalRound =
-     winnersAdvancing.length === 1 &&
-     currentRound.matches.some((m) => m.bracket === "winners");
- 
-   const isLosersBracketFinalRound = currentRound.matches.every(
-     (m) => m.bracket !== "winners" && m.winner
-   );
- 
-   // Handle championship match creation
-   if (isWinnersBracketFinalRound && isLosersBracketFinalRound) {
-     const winnersBracketFinal = currentRound.matches.find(
-       (m) => m.bracket === "winners"
-     );
-     const losersBracketFinal = currentRound.matches.find(
-       (m) => m.bracket === "losers"
-     );
- 
-     if (winnersBracketFinal && losersBracketFinal) {
-       const winnersBracketFinalLoser =
-         winnersBracketFinal.team1.id === winnersBracketFinal.winner?.id
-           ? winnersBracketFinal.team2
-           : winnersBracketFinal.team1;
-       const losersBracketFinalWinner = losersBracketFinal.winner;
- 
-       if (losersBracketFinalWinner) {
-         championshipMatches.push(
-           createMatch(
-             `C${tournament.currentRound + 1}-1`,
-             tournament.currentRound + 1,
-             winnersBracketFinalLoser,
-             losersBracketFinalWinner,
-             false,
-             "championship"
-           )
-         );
-       }
-     }
-   } else {
-    // Create next round matches
-    for (let i = 0; i < winnersAdvancing.length; i += 2) {
-      if (i + 1 < winnersAdvancing.length) {
-        const matchId = `W${tournament.currentRound + 1}-${i / 2 + 1}`;
-        const nextMatchId = `W${tournament.currentRound + 2}-${
-          Math.floor(i / 4) + 1
-        }`;
-        const nextLoserMatchId = `L${tournament.currentRound + 1}-${i / 2 + 1}`;
+  // Check for championship match creation
+  const isWinnersBracketFinalRound = winnersBracketMatches.length === 0; // Assuming no more matches in winner's bracket
+  const isLosersBracketFinalRound =
+    nextLosersBracketMatches.length === 0 &&
+    currentRound.matches.some((m) => m.bracket === "losers" && m.isCompleted); // Assuming last match is the final
 
-        winnersBracketMatches.push(
+  if (isWinnersBracketFinalRound && isLosersBracketFinalRound) {
+    const winnersBracketFinal = currentRound.matches.find(
+      (m) => m.bracket === "winners" && m.isCompleted
+    );
+    const losersBracketFinal = currentRound.matches.find(
+      (m) => m.bracket === "losers" && m.isCompleted
+    );
+
+    if (winnersBracketFinal && losersBracketFinal) {
+      const winnersBracketFinalLoser =
+        winnersBracketFinal.team1.id === winnersBracketFinal.winner?.id
+          ? winnersBracketFinal.team2
+          : winnersBracketFinal.team1;
+      const losersBracketFinalWinner = losersBracketFinal.winner;
+
+      if (losersBracketFinalWinner) {
+        championshipMatches.push(
           createMatch(
-            matchId,
+            `C${tournament.currentRound + 1}-1`,
             tournament.currentRound + 1,
-            winnersAdvancing[i],
-            winnersAdvancing[i + 1],
+            winnersBracketFinalLoser,
+            losersBracketFinalWinner,
             false,
-            "winners",
-            nextMatchId,
-            nextLoserMatchId
+            "championship"
           )
         );
-      }
-    }
-
-     // Get winners from the losers bracket of the previous round
-     const previousRoundNumber = tournament.currentRound - 1;
-     const previousRound = tournament.rounds[previousRoundNumber - 1];
-     const previousLosersBracketWinners = previousRound
-       ? previousRound.matches
-           .filter((m) => m.bracket === "losers" && m.winner)
-           .map((m) => m.winner!)
-       : [];
- 
-     const usedLosersBracketWinners = new Set<string>();
- 
-     // Create losers bracket matches, pairing losers from winners bracket with winners from losers bracket
-     for (const loser of losersFromWinners) {
-       const availableWinner = previousLosersBracketWinners.find(
-         (winner) => !usedLosersBracketWinners.has(winner.id)
-       );
- 
-       if (availableWinner) {
-         const matchId = `L${tournament.currentRound + 1}-${
-           losersBracketMatches.length + 1
-         }`;
-         losersBracketMatches.push(
-           createMatch(
-             matchId,
-             tournament.currentRound + 1,
-             loser,
-             availableWinner,
-             true,
-             "losers"
-           )
-         );
-         usedLosersBracketWinners.add(availableWinner.id);
       }
     }
   }
 
   // Update eliminated teams
-  const newlyEliminatedTeams = currentRound.matches
+  const actuallyEliminated = currentRound.matches
     .filter((m) => m.bracket === "losers" && m.loser)
     .map((m) => m.loser!);
 
-  const actuallyEliminated = newlyEliminatedTeams;
-
-  // Determine tournament winner
-  let winner = undefined;
-  if (currentRound.isChampionshipRound) {
-    const championshipMatch = currentRound.matches[0];
-    if (championshipMatch.winner && !championshipMatch.requiresRematch) {
-      winner = championshipMatch.winner;
-    }
-  }
 
   return {
-    ...tournament,
+    ...tournament, 
     rounds: [
       ...tournament.rounds,
+      ... (championshipMatches.length > 0 && !currentRound.isChampionshipRound ? 
+        [{
+          roundNumber: tournament.currentRound + 1,
+          matches: championshipMatches,
+          isDoubleElimination: true,
+          isChampionshipRound: true,
+          requiresRematch: losersBracketFinalWinner !== undefined // Rematch if winner from loser's bracket
+
+        }]
+        : []
+      ),
       {
         roundNumber: tournament.currentRound + 1,
         matches: [
           ...winnersBracketMatches,
-          ...losersBracketMatches,
-          ...championshipMatches
+          ...nextLosersBracketMatches,
+          ...championshipMatches,
         ],
-        isDoubleElimination: tournament.currentRound === 1,
-        isChampionshipRound: championshipMatches.length > 0
-      }
+          isDoubleElimination: true,
+          isChampionshipRound: championshipMatches.length > 0 && currentRound.isChampionshipRound,
+        }
     ],
     currentRound: tournament.currentRound + 1,
     eliminatedTeams: [...tournament.eliminatedTeams, ...actuallyEliminated],
     winner,
-    championshipMatchesPlayed:
-      championshipMatches.length > 0
-        ? (tournament.championshipMatchesPlayed || 0) + 1
-        : tournament.championshipMatchesPlayed
   };
+};
+
+const processWinnersBracket = (
+  currentRound: Round,
+  currentRoundNumber: number
+): {
+  winnersBracketMatches: Match[];
+  losersBracketMatches: Match[];
+  losersToSeed: { matchId: string; loser: Team }[];
+} => {
+  const winnersBracketMatches: Match[] = [];
+  const losersToSeed: { matchId: string; loser: Team }[] = [];
+  const winnersAdvancing = currentRound.matches
+    .filter((m) => m.bracket === "winners" && m.winner)
+    .map((m) => m.winner!);
+  const numAdvancing = winnersAdvancing.length;
+
+  for (let i = 0; i < numAdvancing; i += 2) {
+    if (i + 1 < numAdvancing) {
+      const matchId = `W${currentRoundNumber + 1}-${i / 2 + 1}`;
+      const nextMatchId = `W${currentRoundNumber + 2}-${Math.floor(i / 4) + 1}`;
+
+      winnersBracketMatches.push(
+        createMatch(
+          matchId,
+          currentRoundNumber + 1,
+          winnersAdvancing[i],
+          winnersAdvancing[i + 1],
+          false,
+          "winners",
+          nextMatchId
+        )
+      );
+    }
+  }
+
+  // Collect losers and their next loser match IDs
+  currentRound.matches
+    .filter((m) => m.bracket === "winners" && m.loser && m.nextLoserMatchId)
+    .forEach((m) =>
+      losersToSeed.push({
+        matchId: m.nextLoserMatchId!,
+        loser: m.loser!,
+      })
+    );
+
+  return { winnersBracketMatches, losersBracketMatches: [], losersToSeed };
+};
+
+const processLosersBracket = (
+  currentRound: Round,
+  currentRoundNumber: number,
+  losersToSeed: { matchId: string; loser: Team }[]
+): Match[] => {
+  const losersBracketMatches: Match[] = [];
+  const nextRoundNumber = currentRoundNumber + 1;
+
+  const losersSeedMap: { [matchId: string]: Team } = {};
+
+  // Seed losers from winners bracket into loser's bracket
+  losersToSeed.forEach(({ matchId, loser }) => {
+    losersSeedMap[matchId] = loser;
+  });
+
+  if (currentRoundNumber === 1) {
+    // In the first loser's bracket round, we expect the losersToSeed to fill the L2 matches.
+    // However, we need to handle the L1 matches as well.
+
+    // Create matches for winners of L1 to play losers from W1
+    const losersBracketRound1Winners = currentRound.matches
+      .filter((m) => m.bracket === "losers" && m.roundNumber === 1 && m.winner)
+      .map((m) => m.winner!);
+
+    let nextLoserMatchIdCounter = 1;
+    losersBracketRound1Winners.forEach((winner) => {
+      const matchId = `L${nextRoundNumber}-${nextLoserMatchIdCounter++}`;
+      const seededLoser = losersSeedMap[matchId];
+      if (seededLoser) {
+        losersBracketMatches.push(
+          createMatch(matchId, nextRoundNumber, winner, seededLoser, false, "losers")
+        );
+      }
+    });
+  } else {
+     // In subsequent rounds, we pair the winners of the previous loser's bracket round.
+     const losersBracketWinners = currentRound.matches
+       .filter((m) => m.bracket === "losers" && m.winner)
+       .map((m) => m.winner!);
+
+     for (let i = 0; i < losersBracketWinners.length; i += 2) {
+       if (i + 1 < losersBracketWinners.length) {
+         const matchId = `L${nextRoundNumber}-${i / 2 + 1}`;
+         losersBracketMatches.push(
+           createMatch(matchId, nextRoundNumber, losersBracketWinners[i], losersBracketWinners[i + 1], false, "losers")
+         );
+       }
+     }
+   }
+      );
+    }
+  }
+  return losersBracketMatches;
 };
 
 import { Team } from "./teams";
