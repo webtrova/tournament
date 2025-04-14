@@ -28,8 +28,12 @@ export const MatchCard = ({
     return `/teams/${fileName}`;
   };
 
-  const team1Logo = getTeamLogoPath(match.team1.name);
-  const team2Logo = getTeamLogoPath(match.team2.name);
+  const team1Logo = match.team1 ? getTeamLogoPath(match.team1.name) : "";
+  const team2Logo = match.team2 ? getTeamLogoPath(match.team2.name) : "";
+  const team1Name = match.team1 ? match.team1.name : "TBD";
+  const team2Name = match.team2 ? match.team2.name : "TBD";
+  const team1IsEliminated = match.team1 && tournament.eliminatedTeams.includes(match.team1);
+  const team2IsEliminated = match.team2 && tournament.eliminatedTeams.includes(match.team2);
 
   const [localScore, setLocalScore] = useState({
     team1Score: match.score.team1Score,
@@ -90,13 +94,13 @@ export const MatchCard = ({
       <div className="space-y-3">
         <div className="relative">
           <TeamScore
-            team={match.team1}
+            team={match.team1 || { id: "tbd", name: team1Name, city: "", losses: 0 }}
             score={localScore.team1Score}
             isWinner={match.winner === match.team1}
-            isEliminated={tournament.eliminatedTeams.includes(match.team1)}
+            isEliminated={team1IsEliminated}
             bracket={match.bracket}
             logo={team1Logo}
-          />
+            />
           {isMatchActive && (
             <input
               type="number"
@@ -112,10 +116,10 @@ export const MatchCard = ({
 
         <div className="relative">
           <TeamScore
-            team={match.team2}
+            team={match.team2 || { id: "tbd", name: team2Name, city: "", losses: 0 }}
             score={localScore.team2Score}
             isWinner={match.winner === match.team2}
-            isEliminated={tournament.eliminatedTeams.includes(match.team2)}
+            isEliminated={team2IsEliminated}
             bracket={match.bracket}
             logo={team2Logo}
           />
